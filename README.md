@@ -35,3 +35,4 @@ var compose = require("dr-svg-compose"),
 compose(src, dest, elements, callback);
 ```
 
+[![Analytics](https://ga-beacon.appspot.com/UA-8318361-2/drdk/dr-svg-composer)](https://github.com/igrigorik/ga-beacon)
