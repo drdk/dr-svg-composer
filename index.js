@@ -1,17 +1,17 @@
 /*
  * dr-svg-composer
- * 
+ *
  *
  * Copyright (c) 2013 drdk
  * Licensed under the MIT license.
  */
- 
+
 "use strict";
 
 /*
 {
 	"src": "img/_source/svg-logo-elements/",
-	"dest": "img/_source/svg-logos/tv/", // dest + target  
+	"dest": "img/_source/svg-logos/tv/", // dest + target
 	"elements": {
 		"ramasjang-ultra": [{ "name": "dr", "y": 14 }, { "name": "ramasjang", "x": -7 }, "ultra"]
 	}
@@ -20,16 +20,18 @@
 
 module.exports = function (src, dest, elements, callback) {
 
-	var async = require("async");
-	var _ = require("lodash");
 	var fs = require("fs");
 	var path = require("path");
-	var fsutil = require("./lib/fsutil");
+
+	var _ = require("lodash");
+	var async = require("async");
+	var mkdirp = require("mkdirp");
+
 	var svgutil = require("./lib/svgutil");
 
-	var subElements = {},
-	    names = [];
-	
+	var subElements = {};
+	var names = [];
+
 	// turn string sub-elements into objects
 	_.forOwn(elements, function (subElements, name) {
 		subElements.forEach(function (subElement, index) {
@@ -49,33 +51,36 @@ module.exports = function (src, dest, elements, callback) {
 
 	// load svg sub-elements
 	var tasks = {};
-	
+
 	names.forEach(function (name) {
 		tasks[name] = function (callback) {
 			svgutil.loadShape(src + "/" + name + ".svg", callback);
 		};
 	});
-	
+
 	async.parallel(tasks, function (err, results) {
 		subElements = results;
-		composeElements();
-	});
 
-	// build elements
+		var subTasks = {};
 
-	function composeElements () {
+		mkdirp(dest, function () {
 
-		//console.log("Composing elements...");
-		
-		fsutil.mkdirRecursive(dest);
-		_.forOwn(elements, function (subElements, name) {
-			composeElement(dest, subElements, name);
+			_.forOwn(elements, function (subElements, name) {
+				subTasks[name] = function (callback) {
+					composeElement(dest, subElements, name, callback);
+				};
+			});
+
+			async.parallel(subTasks, function (err, subResults) {
+				callback(null, "Elements composed");
+			});
 		});
 
-		callback(null, "Elements composed");
-	}
+	});
 
-	function composeElement (destination, _subElements, name) {
+	// build element
+
+	function composeElement (destination, _subElements, name, callback) {
 
 		var width = 0;
 		var height = 0;
@@ -83,8 +88,6 @@ module.exports = function (src, dest, elements, callback) {
 		var lastElement = _subElements[length - 1];
 		var fill = ("fill" in lastElement) ? lastElement.fill : null;
 		var fileName = path.relative(process.cwd(), destination + "/" + name + ".svg");
-			
-		//console.log("Composing element:", fileName, "...");
 
 		var svgElements = _subElements.map(function (subElement, i) {
 			var element = subElements[subElement.name];
@@ -95,8 +98,8 @@ module.exports = function (src, dest, elements, callback) {
 			height = (height < _height) ? _height : height;
 			return data;
 		});
-		
-		fs.writeFileSync(fileName, svgutil.wrap(Math.ceil(width), height, svgElements), "utf8");
+
+		fs.writeFile(fileName, svgutil.wrap(Math.ceil(width), height, svgElements), "utf8", callback);
 	}
 
 };
